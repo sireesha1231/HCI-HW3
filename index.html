@@ -1,0 +1,174 @@
+<html>
+<head>
+	<title>Basamsetty_CS_522_HW_3</title>
+	<style>
+		.back {
+			fill: white;
+		}
+
+		.iso {
+			fill: gray;
+		}
+
+		.target {
+			fill: red;
+		}
+
+		#scene {
+			border: 1px solid black;
+		}
+	</style>
+	<script>
+		var svgElem = null;
+		var sceneWidth = 300;
+		var sceneHeight = 300;
+		var cursorPos = {x:0, y:0};
+		var samplesCollected = 0;
+		var totalSamples = 50;
+		var sessionEnded = false;
+		var samples = [];
+
+		var targetData = {
+			"startTime" : null,
+			"startCursorPos" : null,
+			"targetCenter" : null,
+			"targetRadius" : null
+		};
+
+		function endSession() {
+			sessionEnded = true;
+			console.log(samples);
+		}
+
+		function updateJSON() {
+			var outputElem = document.getElementById("output");
+			var data = JSON.stringify(samples);
+			outputElem.innerHTML = "<a href=\"data:application/json;charset=utf-8,"+encodeURIComponent(data)+"\" download=\"data.json\">Save</a>";
+		}
+
+		function updateNumSamples(val) {
+			var sampElem = document.getElementById("numSamples");
+			sampElem.innerHTML = "Num Samples: " + val;
+		}
+
+		function targetClicked() {
+			if (sessionEnded) return;
+			t = Date.now() - targetData["startTime"];
+			startPos = targetData["startCursorPos"];
+			endPos = targetData["targetCenter"];
+			console.log("Target clicked! (time = " + t + " ms, from = ("+startPos.x + "," + startPos.y+"))");
+
+			var sample = {
+				time : t,
+				amplitude : Math.hypot(endPos.x - startPos.x, endPos.y - startPos.y),
+				width: targetData["targetRadius"] * 2
+			};
+			samples.push(sample);
+			samplesCollected += 1;
+			console.log("Samples number: " + (totalSamples));
+
+			updateNumSamples(samplesCollected);
+			updateJSON();
+
+			genCircles();
+		}
+
+		function reset() {
+			samples = [];
+			samplesCollected = 0;
+			updateNumSamples(0);
+			renderStart();
+		}
+
+		function targetMissed() {
+			if (sessionEnded) return;
+			console.log("Oops!");
+			genCircles();
+		}
+
+		var prevChosen = 0;
+
+		function randomInt(max) {
+			return Math.floor(Math.random() * max);
+		}
+
+		function randomFloat(min, max) {
+			return Math.random() * (max - min) + min;
+		}
+
+		function renderStart() {
+			var ox = sceneWidth / 2;
+			var oy = sceneHeight / 2;
+			var output = "<circle onclick='genCircles()' style='fill:red' cx='" + ox + "' cy='"+oy+"' r='40'></circle>"
+			output += "<text onclick='genCircles()' x='"+ox+"' y='"+oy+"' dominant-baseline='middle' text-anchor='middle' font-weight='bold' font-family='Arial' font-size='15' fill='white'>START</text>";
+			svgElem.innerHTML = output;
+		}
+
+		function genCircles() {
+			var radius = randomFloat(10, 30);
+			var ringRadius = 120;
+			var numCircles = 10;
+			var chosen = 0;
+			var targetCenter = { x : 0, y : 0 };
+			while (chosen == prevChosen)
+				chosen = randomInt(numCircles);
+			prevChosen = chosen;
+			var output = "";
+			output += "<rect class='back' onclick='targetMissed()' x='0' y='0' width='640' height='480'></rect>";
+			for (var i = 0; i < numCircles; i++) {
+				var ox = sceneWidth / 2;
+				var oy = sceneHeight / 2;
+				var theta = i * Math.PI * 2 / numCircles;
+				var cx = Math.sin(theta) * ringRadius + ox;
+				var cy = Math.cos(theta) * ringRadius + oy;
+				if (i != chosen % numCircles)
+					output += "<circle class='iso' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
+				else {
+					output += "<circle class='target' onclick='targetClicked()' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
+					targetCenter.x = cx;
+					targetCenter.y = cy;
+				}
+			}
+
+			targetData["startTime"] = Date.now();
+			targetData["startCursorPos"] = { x: cursorPos.x, y: cursorPos.y };
+			targetData["targetCenter"] = targetCenter;
+			targetData["targetRadius"] = radius;
+
+			svgElem.innerHTML = output;
+		}
+
+		function hookEvents() {
+			svgElem = document.getElementById("scene");
+			svgElem.addEventListener("mousemove", function (evt) {
+				cursorPos.x = evt.clientX;
+				cursorPos.y = evt.clientY;
+			});
+		}
+
+		function main() {
+			hookEvents();
+			//genCircles();
+			renderStart();
+			console.log("Circles generated");
+		}
+	</script>
+</head>
+<body onload="main()">
+	<h1>HW3 - HCI</h1>
+	<h2>Fitts's Law Experimentation</h2>
+	<h3>Multi-Directional Tapping test</h3>
+	<p>Please perform the experiment in how many ever number of clicks you wish. After completion of the experiment, click on the Save link below. If you wish to restart the experiment, there is a Reset Button.
+	</p>
+	<center>
+		<svg id="scene" width="300" height="300" style="pointer-events: all;">
+		</svg>
+		<br />
+		<span id="numSamples">Num Samples: 0</span>
+		&nbsp;
+		<button onclick='reset()'>Reset</button>
+		<br />
+		<span id="output"></span>
+	</center>
+</body>
+</html>
