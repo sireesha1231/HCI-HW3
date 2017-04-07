@@ -19,6 +19,31 @@
 		}
 	</style>
 	<script>
+		function ProblemGenerator(amplitudes, widths, repeatCount) {
+			var i = 0;
+			var problemCache = [];
+			for (var j = 0; j < amplitudes.length; j++) {
+				for (var k = 0; k < widths.length; k++) {
+					for (var m = 0; m < repeatCount; m++) {
+						var problem = { 
+							amplitude: amplitudes[j], 
+							width    : widths[k] 
+							};
+						problemCache.push(problem);
+					}
+				}
+			}
+
+			this.reset = function() {
+				i = 0;
+			};
+
+			this.next = function() {
+				if (i >= problemCache.length) return null;
+				return problemCache[i++];
+			}
+		}
+
 		var svgElem = null;
 		var sceneWidth = 300;
 		var sceneHeight = 300;
@@ -27,6 +52,9 @@
 		var totalSamples = 50;
 		var sessionEnded = false;
 		var samples = [];
+		var problemGen = new ProblemGenerator([150, 200, 250], [20, 50], 10);
+		var problem = null;
+		var chosen = 0;
 
 		var targetData = {
 			"startTime" : null,
@@ -54,14 +82,14 @@
 		function targetClicked() {
 			if (sessionEnded) return;
 			t = Date.now() - targetData["startTime"];
-			startPos = targetData["startCursorPos"];
-			endPos = targetData["targetCenter"];
-			console.log("Target clicked! (time = " + t + " ms, from = ("+startPos.x + "," + startPos.y+"))");
+			//startPos = targetData["startCursorPos"];
+			//endPos = targetData["targetCenter"];
+			//console.log("Target clicked! (time = " + t + " ms, from = ("+startPos.x + "," + startPos.y+"))");
 
 			var sample = {
 				time : t,
-				amplitude : Math.hypot(endPos.x - startPos.x, endPos.y - startPos.y),
-				width: targetData["targetRadius"] * 2
+				amplitude : problem.amplitude,//Math.hypot(endPos.x - startPos.x, endPos.y - startPos.y),
+				width: problem.width //targetData["targetRadius"] * 2
 			};
 			samples.push(sample);
 			samplesCollected += 1;
@@ -74,6 +102,7 @@
 		}
 
 		function reset() {
+			problemGen.reset();
 			samples = [];
 			samplesCollected = 0;
 			updateNumSamples(0);
@@ -83,10 +112,8 @@
 		function targetMissed() {
 			if (sessionEnded) return;
 			console.log("Oops!");
-			genCircles();
+			//genCircles();
 		}
-
-		var prevChosen = 0;
 
 		function randomInt(max) {
 			return Math.floor(Math.random() * max);
@@ -105,35 +132,42 @@
 		}
 
 		function genCircles() {
-			var radius = randomFloat(10, 30);
-			var ringRadius = 120;
-			var numCircles = 10;
-			var chosen = 0;
-			var targetCenter = { x : 0, y : 0 };
-			while (chosen == prevChosen)
-				chosen = randomInt(numCircles);
-			prevChosen = chosen;
+			console.log("genCircles();")
+			problem = problemGen.next();
+			console.log("Problem:");
+			console.log(problem);
+
 			var output = "";
-			output += "<rect class='back' onclick='targetMissed()' x='0' y='0' width='640' height='480'></rect>";
-			for (var i = 0; i < numCircles; i++) {
-				var ox = sceneWidth / 2;
-				var oy = sceneHeight / 2;
-				var theta = i * Math.PI * 2 / numCircles;
-				var cx = Math.sin(theta) * ringRadius + ox;
-				var cy = Math.cos(theta) * ringRadius + oy;
-				if (i != chosen % numCircles)
-					output += "<circle class='iso' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
-				else {
-					output += "<circle class='target' onclick='targetClicked()' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
-					targetCenter.x = cx;
-					targetCenter.y = cy;
+			if (problem) {
+				var radius = problem.width / 2;
+				var ringRadius = problem.amplitude / 2;
+				var numCircles = 9;
+				var targetCenter = { x : 0, y : 0 };
+				chosen = (chosen + Math.floor(numCircles / 2)) % numCircles;
+				output += "<rect class='back' onclick='targetMissed()' x='0' y='0' width='640' height='480'></rect>";
+				for (var i = 0; i <= numCircles; i++) {
+					if (i == chosen) continue;
+					if (i == numCircles) i = chosen;
+					var ox = sceneWidth / 2;
+					var oy = sceneHeight / 2;
+					var theta = i * Math.PI * 2 / numCircles;
+					var cx = Math.sin(theta) * ringRadius + ox;
+					var cy = Math.cos(theta) * ringRadius + oy;
+					if (i != chosen % numCircles)
+						output += "<circle class='iso' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
+					else {
+						output += "<circle class='target' onclick='targetClicked()' cx='" + cx + "' cy='" +cy+ "' r='"+radius+"'></circle>"; 
+						targetCenter.x = cx;
+						targetCenter.y = cy;
+						break;
+					}
 				}
 			}
 
 			targetData["startTime"] = Date.now();
-			targetData["startCursorPos"] = { x: cursorPos.x, y: cursorPos.y };
-			targetData["targetCenter"] = targetCenter;
-			targetData["targetRadius"] = radius;
+			//targetData["startCursorPos"] = { x: cursorPos.x, y: cursorPos.y };
+			//targetData["targetCenter"] = targetCenter;
+			//targetData["targetRadius"] = radius;
 
 			svgElem.innerHTML = output;
 		}
